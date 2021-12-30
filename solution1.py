@@ -4,8 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import json
 
-def pre_process_image(img, morph_size=(8, 8)):
-
+def pre_process_image(img, morph_size):
     pre = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     pre = cv2.threshold(pre, 250, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
     cpy = pre.copy()
@@ -16,7 +15,7 @@ def pre_process_image(img, morph_size=(8, 8)):
     return pre
 
 
-def find_text_boxes(pre, min_text_height_limit=8, max_text_height_limit=20):
+def find_text_boxes(pre, min_text_height_limit=8, max_text_height_limit=40):
     contours, hierarchy = cv2.findContours(pre, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     boxes = []
     for contour in contours:
@@ -84,8 +83,8 @@ def get_bbox(table_cells):
 
     return bbox
 
-def detection(img):
-    pre_processed = pre_process_image(img)
+def detection(img, morph_size):
+    pre_processed = pre_process_image(img, morph_size)
     text_boxes = find_text_boxes(pre_processed)
     cells = find_table_in_boxes(text_boxes)
 
@@ -119,6 +118,8 @@ def IOU(boxA, boxB):
     return iou
 
 def evaluation():
+    morph_size=(20, 10)
+    print(morph_size)
     his_eval = [] #lưu các chỉ số iou của mỗi lần so sánh
     fileObject = open("dataFwork/annotations/instances_default.json", "r")
     jsonContent = fileObject.read()
@@ -134,33 +135,43 @@ def evaluation():
         imagePath = "dataFwork/images/" + imagePath
 
         img = cv2.imread(imagePath)
-        bbox_detect = detection(img)
+        bbox_detect = detection(img, morph_size)
+
+        x,y,w,h = bbox_actual
+        bbox_actual = (x,y,x+w,y+h)
+        x,y,w,h = bbox_detect
+        bbox_detect = (x,y,x+w,y+h)
         iou = IOU(bbox_detect, bbox_actual)   
         his_eval.append((imagePath, iou, bbox_detect, tuple(bbox_actual)))
 
     return his_eval   
 
 if __name__ == "__main__":
-    # his = evaluation()
-    # for h in his:
-    #     # print(h)
-    #     if(h[1] > 0):
-    #         print(h)
-    #         img_path = h[0]
-    #         img = cv2.imread(img_path)
-    #         bbox_detect = h[2]
-    #         bbox_actual = h[3]
-    #         x,y,w,h = bbox_detect
-    #         cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
-    #         cv2.putText(img,"detect", (x,y),cv2.FONT_HERSHEY_SIMPLEX, 2, (0,255,0), 3, cv2.LINE_AA)
-    #         x,y,w,h = bbox_actual
-    #         x = int(x)
-    #         y = int(y)
-    #         w = int(w)
-    #         h = int(h)
-    #         cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),2)
-    #         cv2.putText(img,"actual", (x,y),cv2.FONT_HERSHEY_SIMPLEX, 2, (255,0,0), 3, cv2.LINE_AA)
-    #         plt.imshow(img)
-    #         plt.show()
+    his = evaluation()
+    for h in his:
+        iou = str(round(h[1], 2))
+        img_path = h[0]
+        img = cv2.imread(img_path)
+        bbox_detect = h[2]
+        bbox_actual = h[3]
+        x,y,x2,y2 = bbox_detect
+        cv2.rectangle(img,(x,y),(x2,y2),(0,255,0),2)
+        cv2.rectangle(img, (x, y-45), (x+190,y), (0,0,0), -1)
+        cv2.putText(img,"detect", (x,y),cv2.FONT_HERSHEY_SIMPLEX, 2, (0,255,0), 3, cv2.LINE_AA)
+        x,y,x2,y2 = bbox_actual
+        x = int(x)
+        y = int(y)
+        x2 = int(x2)
+        y2 = int(y2)
+        cv2.rectangle(img,(x,y),(x2,y2),(255,0,0),2)
+        cv2.rectangle(img, (x, y-45), (x+190,y), (0,0,0), -1)
+        cv2.putText(img,"actual", (x,y),cv2.FONT_HERSHEY_SIMPLEX, 2, (255,0,0), 3, cv2.LINE_AA)
+        
+        cv2.putText(img, "IOU: "+ iou, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
+        cv2.imwrite("evaluation/solution1/"+img_path[17:len(img_path)], img)
 
-    multi_images_detection(folderPath = "D:/FtechWork/tableDetection/table-detection-dataset-master/images")
+    his = [h[1] for h in his]
+    histogram = np.histogram(his, bins = (0, 0.25, 0.5, 0.75, 1))
+    print(histogram[0])
+    print(histogram[1])
+    # multi_images_detection(folderPath = "D:/FtechWork/tableDetection/table-detection-dataset-master/images")
